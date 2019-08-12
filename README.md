@@ -9,13 +9,11 @@ This project contains a simple SAML implementation for a java spring boot applic
 
 Create an application corresponding to this test application in your IDP (ssoCircle/Okta/Onelogin).
 
-### Environment variables
+### Configuration Parameters
 
 APP_ID=<"APP ID from IDP">
 
 ENTITY_ID=<"ENTITY ID FROM IDP">
-
-IDP_METADATA_URL=<"METADATA URL for IDP">
 
 ### Running the application
 

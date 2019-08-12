@@ -14,8 +14,14 @@ import org.apache.velocity.app.VelocityEngine;
 import org.opensaml.saml2.metadata.provider.HTTPMetadataProvider;
 import org.opensaml.saml2.metadata.provider.MetadataProvider;
 import org.opensaml.saml2.metadata.provider.MetadataProviderException;
+import org.opensaml.saml2.metadata.provider.ResourceBackedMetadataProvider;
+import org.opensaml.util.resource.ClasspathResource;
 import org.opensaml.util.resource.ResourceException;
 import org.opensaml.xml.parse.StaticBasicParserPool;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.DisposableBean;
+import org.springframework.beans.factory.InitializingBean;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
@@ -75,7 +81,21 @@ import org.springframework.security.web.util.matcher.AntPathRequestMatcher;
 
 @Configuration
 @EnableWebSecurity
-public class AuthConfig extends WebSecurityConfigurerAdapter {
+public class AuthConfig extends WebSecurityConfigurerAdapter implements InitializingBean, DisposableBean {
+
+  private static final Logger logger = LoggerFactory.getLogger(AuthConfig.class);
+  private Timer backgroundTaskTimer;
+  public void init() {
+    this.backgroundTaskTimer = new Timer(true);
+
+  }
+
+  public void shutdown() {
+    this.backgroundTaskTimer.purge();
+    this.backgroundTaskTimer.cancel();
+
+  }
+
 
   @Value("${idp.entityId}")
   private String entityId;
@@ -345,21 +365,28 @@ public class AuthConfig extends WebSecurityConfigurerAdapter {
     return new SingleLogoutProfileImpl();
   }
 
+
   @Bean
   public ExtendedMetadataDelegate idpMetadata()
-      throws MetadataProviderException, ResourceException {
+          throws MetadataProviderException {
 
-    Timer backgroundTaskTimer = new Timer(true);
+    ClasspathResource metadataResource = null;
+    ExtendedMetadataDelegate extendedMetadataDelegate = null;
+    try {
+      metadataResource = new ClasspathResource("/samlMetadata.xml");
+      ResourceBackedMetadataProvider resourceBackedMetadataProvider = new ResourceBackedMetadataProvider(
+              this.backgroundTaskTimer, metadataResource);
+      resourceBackedMetadataProvider.setParserPool(parserPool());
 
-    HTTPMetadataProvider httpMetadataProvider = new HTTPMetadataProvider(backgroundTaskTimer,
-        new HttpClient(), metadataURL.concat(this.appId));
-
-    httpMetadataProvider.setParserPool(parserPool());
-
-    ExtendedMetadataDelegate extendedMetadataDelegate =
-        new ExtendedMetadataDelegate(httpMetadataProvider, extendedMetadata());
-    extendedMetadataDelegate.setMetadataTrustCheck(true);
-    extendedMetadataDelegate.setMetadataRequireSignature(false);
+      extendedMetadataDelegate =
+              new ExtendedMetadataDelegate(resourceBackedMetadataProvider, extendedMetadata());
+      extendedMetadataDelegate.setMetadataTrustCheck(false);
+      extendedMetadataDelegate.setMetadataRequireSignature(false);
+      backgroundTaskTimer.purge();
+    } catch (ResourceException e) {
+      e.printStackTrace();
+    }
+    extendedMetadataDelegate.initialize();
     return extendedMetadataDelegate;
   }
 
@@ -376,6 +403,16 @@ public class AuthConfig extends WebSecurityConfigurerAdapter {
     SAMLAuthenticationProvider samlAuthenticationProvider = new SAMLAuthenticationProvider();
     samlAuthenticationProvider.setForcePrincipalAsString(false);
     return samlAuthenticationProvider;
+  }
+
+  @Override
+  public void afterPropertiesSet() throws Exception {
+    init();
+  }
+
+  @Override
+  public void destroy() throws Exception {
+    shutdown();
   }
 
 }
