@@ -68,8 +68,6 @@ import org.springframework.security.web.authentication.logout.SimpleUrlLogoutSuc
 import org.springframework.security.web.authentication.www.BasicAuthenticationFilter;
 import org.springframework.security.web.util.matcher.AntPathRequestMatcher;
 
-import lombok.Getter;
-import lombok.Setter;
 
 /**
  * @author lakshmiabinaya
@@ -80,38 +78,24 @@ import lombok.Setter;
 public class AuthConfig extends WebSecurityConfigurerAdapter {
 
   @Value("${idp.entityId}")
-  @Getter
-  @Setter
   private String entityId;
 
   @Value("${idp.appId}")
-  @Getter
-  @Setter
   private String appId;
 
   @Value("${idp.postLogoutURL}")
-  @Getter
-  @Setter
   private String postLogoutURL;
 
   @Value("${idp.metadataURL}")
-  @Getter
-  @Setter
   private String metadataURL;
 
   @Value("${server.ssl.key-store}")
-  @Getter
-  @Setter
   private Resource keyStore;
 
   @Value("${server.ssl.key-store-password}")
-  @Getter
-  @Setter
   private String secret;
 
   @Value("${server.ssl.key-alias}")
-  @Getter
-  @Setter
   private String alias;
 
 
@@ -226,7 +210,7 @@ public class AuthConfig extends WebSecurityConfigurerAdapter {
   @Bean
   public MetadataGenerator metadataGenerator() {
     MetadataGenerator metadataGenerator = new MetadataGenerator();
-    metadataGenerator.setEntityId(getEntityId());
+    metadataGenerator.setEntityId(this.entityId);
     metadataGenerator.setExtendedMetadata(extendedMetadata());
     metadataGenerator.setIncludeDiscoveryExtension(false);
     metadataGenerator.setKeyManager(keyManager());
@@ -235,9 +219,9 @@ public class AuthConfig extends WebSecurityConfigurerAdapter {
 
   @Bean
   public KeyManager keyManager() {
-    String storePass = getSecret();
+    String storePass = this.secret;
     Map<String, String> passwords = new HashMap<>();
-    passwords.put(alias, getSecret());
+    passwords.put(alias, storePass);
     return new JKSKeyManager(keyStore, storePass, passwords, alias);
   }
 
@@ -368,7 +352,7 @@ public class AuthConfig extends WebSecurityConfigurerAdapter {
     Timer backgroundTaskTimer = new Timer(true);
 
     HTTPMetadataProvider httpMetadataProvider = new HTTPMetadataProvider(backgroundTaskTimer,
-        new HttpClient(), metadataURL.concat(getAppId()));
+        new HttpClient(), metadataURL.concat(this.appId));
 
     httpMetadataProvider.setParserPool(parserPool());
 
